@@ -1,0 +1,176 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+
+```{r load-data}
+load("gss.Rdata")
+```
+This is the dataset I will use for the project.
+
+
+* * *
+
+## Part 1: Data
+The General Social Survey (GSS) is a survey that captures societal change and aims to understand complexities of American society. The survey has taken place annually since 1972. The survey is an observational study conducted in person using simple random sampling, however no random assignment was used. This allows generalizing but not inferring causation. The survey takes about 90 minutes to administer. As of 2014, 30 national samples with ~60k respondents and ~6k variables are collected. Participation is voluntarily, no random assignment of respondents. 
+
+The population of interest is the working US population therefore the results can be generalized to the US population. 
+
+*Bias*
+
+In this dataset we can encounter potential bias given that the survey for year 2012 did not sample minors that could be working or people where English is not the first language. We need to keep this in mind as extrapolating the results to these categories would yield wrong results.
+
+
+```{r data-subset}
+# subset the data to consider more recent records after 2012
+# ignore missing values records
+# keep political views and confidence in governemnt variables: polviews, confed
+# both are categorical variables
+gss_pol <- gss %>% filter(year >= 2012 & !is.na(polviews) & !is.na(confed)) %>%
+  select(polviews,confed)
+dim(gss)
+dim(gss_pol)
+
+```
+I subset the data to consider more recent records after 2012 and ignore missing values records\n.
+The subset dataset has 1,252 records from a total of 57,061 records.
+
+
+## Part 2: Research question
+*My research topic is exploring the relationship between political views and confidence in the executive branch of federal government. I find this topic of high relevance in the current political climate.*
+
+## Part 3: Exploratory data analysis
+
+Using the head and tail function to visualize some records in the data.
+
+```{r exploratory-data-analysis}
+
+str(gss_pol)
+head(gss_pol)
+tail(gss_pol)
+
+```
+* The variables in the subset are both categorical with 7 and 3 levels. 
+* The variable **'polviews'** indicates the political affiliation on a scale from extremely liberal to extremely conservative.
+* The variable **'confed'** states whatever the respondent has confidence in the federal government.
+
+
+```{r}
+pol.views <- table(gss_pol$polviews, useNA = "ifany")
+# generate frequency table
+pol.views
+
+# generate row percentages for frequency table
+round(prop.table(pol.views) * 100,1)
+
+```
+ The moderate group (37%) is the biggest followed by a combined conservatives (35 %) and liberals combined (29%). Over all the three big groups are uniform at approximately one third each.
+
+```{r}
+pol.confed <- table(gss_pol$confed, useNA = "ifany")
+# generate frequency table
+pol.confed 
+
+# generate row percentages for frequency table
+round(prop.table(pol.confed) * 100,1)
+```
+  We notice that respondents with a great deal of confidence in the executive branch of the government are in a minority. In addition, ~38% have little confidence in the federal government.
+
+```{r}
+gss.pol <- table(gss_pol$polviews,gss_pol$confed)
+
+# generate frequency table
+gss.pol
+
+# generate row percentages for frequency table
+round(prop.table(gss.pol,1) * 100,1)
+
+# generate column percentages for frequency table
+round(prop.table(gss.pol,2) * 100,1)
+```
+
+```{r}
+g <- ggplot(data = gss_pol, aes(x=polviews)) +
+  geom_bar(aes(fill=confed), position = "dodge") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+g
+
+```
+ 
+#### Highlights:
+* 1.	Respondents with *great deal* of confidence are consistently lower among political views spectrum 
+* 2.	Respondents with *only some* confidence are majority across all groups except the most conservative group.
+* 3.	Overall the liberals have more confidence than conservatives
+
+```{r}
+ # plot(gss.pol)
+mosaicplot(gss.pol, main = "Political Views in Connection with Confidence in Feds", color= TRUE )
+```
+
+###
+ 
+  In the above mosaic plot, the area of the tiles is proportional to the value counts within a group. When cells across groups all have similar sizes, it shows independence between the variables\n. 
+  
+We notice that the area for the group *A Great Deal* consistently decreases within its group as the political views go from liberal to conservative.
+
+
+
+## Part 4: Inference
+
+##### a. State hypotheses
+
+* **Null hypothesis:** Political views and confidence in the executive branch of the government are *independent* (nothing is going on).
+* **Alternative hypothesis:** Political views and confidence in the executive branch of the government are *dependent* (something is going on).
+
+##### b. Check conditions
+
+**Independence:** GSS dataset is generated from a random sampled survey and we can assume independence within groups and between groups. Each case only contributes to one cell in the table.
+
+**Sample Size:** The subset I use has 1,252 records which is less than 10% of US population. For a chi-square test of independence it's required to have at least 5 cases for each particular scenario/cell.
+
+ 
+ Next we'll produce a chisquared table and analyse the results.
+ 
+```{r}
+chisq.test(gss_pol$polviews,gss_pol$confed)$expected
+```
+Every cell has an expected count higher than 5\n.
+
+**Degrees of Freedom:** We have 7 political views levels and 3 confidence levels for the two categorical variables. Calculated df=(7-1)x(3-1)=12 which is higher than 2.
+
+##### c. State the method(s) to be used and why and how
+  I use *chi-square test of independence* since I am evaluating the relationship between two categorical variables. All conditions for the test are fulfilled.
+  
+##### d. Perform inference
+    
+```{r inference}
+gss_chi_ind <- chisq.test(gss_pol$polviews,gss_pol$confed)
+
+gss_chi_ind
+```
+
+The chi-squared statistic is 127.49, 12 degrees of freedom value and the p-value if very close to 0. 
+
+##### e. Interpret results
+  Since the p-value is lower than the significance level of 0.05 we conclude that we have convincing evidence to reject the null hypothesis in favour of the alternative hypostasis that the political views and confidence in the executive branch of the government are dependent\n. 
+  
+The study being observational we can generalize that there is an association between the two variables but we cannot infer causation.
+
